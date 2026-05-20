@@ -119,40 +119,50 @@ main:
     # TODO
 
     ###########################################################################
-    # Read embeddings matrix
-    ###########################################################################
-    # TODO
-
-    ###########################################################################
-    # Parse vocabulary embeddings matrix from buffer
-    ###########################################################################
-    # TODO
-    
-   
-    ###########################################################################
-    # Convert input tokens to indices
-    ###########################################################################
-    # TODO
-
-    ###########################################################################
     # Build input embeddings matrix
     ###########################################################################
-    # TODO
+    # build_input_embeddings_matrix(INPUT_EMBEDDINGS_MATRIX, VOCAB_EMBEDDINGS_MATRIX, INPUT_INDICES_VECTOR, INPUT_TOTAL_TOKENS)
+    la a0, INPUT_EMBEDDINGS_MATRIX
+    la a1, VOCAB_EMBEDDINGS_MATRIX
+    la a2, INPUT_INDICES_VECTOR
+    lw a3, INPUT_TOTAL_TOKENS
+    jal ra, build_input_embeddings_matrix
 
     ###########################################################################
-    # Build matrix Q
+    # Build matrix Q = E × W_Q
     ###########################################################################
-    # TODO
+    la a0, Q_MATRIX
+    la a1, INPUT_EMBEDDINGS_MATRIX
+    lw a2, INPUT_TOTAL_TOKENS
+    li a3, CONST_DIMENSION
+    la a4, W_Q_MATRIX
+    li a5, CONST_DIMENSION
+    li a6, CONST_DIMENSION
+    jal ra, matrix_multiply
 
     ###########################################################################
-    # Build matrix K
+    # Build matrix K = E × W_K
     ###########################################################################
-    # TODO
+    la a0, K_MATRIX
+    la a1, INPUT_EMBEDDINGS_MATRIX
+    lw a2, INPUT_TOTAL_TOKENS
+    li a3, CONST_DIMENSION
+    la a4, W_K_MATRIX
+    li a5, CONST_DIMENSION
+    li a6, CONST_DIMENSION
+    jal ra, matrix_multiply
 
     ###########################################################################
-    # Build matrix V
+    # Build matrix V = E × W_V
     ###########################################################################
-    # TODO
+    la a0, V_MATRIX
+    la a1, INPUT_EMBEDDINGS_MATRIX
+    lw a2, INPUT_TOTAL_TOKENS
+    li a3, CONST_DIMENSION
+    la a4, W_V_MATRIX
+    li a5, CONST_DIMENSION
+    li a6, CONST_DIMENSION
+    jal ra, matrix_multiply
 
     ###########################################################################
     # Compute scores for the last input token
