@@ -237,7 +237,39 @@ tokens_to_indices:
 # (in)     a2: address of the input indices array (int*)
 # (in)     a3: number of tokens in the input (int)
 build_input_embeddings_matrix:
-    # TODO
+
+    beq a3, zero, fim_build_emb    # Verifica se ha tokens para processar
+    
+    mv t0, a2                     # t0 = input indices pointer
+    mv t1, a0                     # t1 = output matrix pointer
+    li t2, 0                      # t2 = contador (i)
+    
+loop_build_emb:
+    beq t2, a3, fim_build_emb
+    
+    lw t4, 0(t0)                  # t4 = vocabulary row index
+    
+    # OTIMIZACAO 
+    slli t5, t4, 4                # t5 = t4 << 4 (ou seja t4 * 16)
+    add t5, a1, t5                # t5 = source row address
+    
+    # Copia 4 inteiros
+    lw t6, 0(t5)
+    sw t6, 0(t1)
+    lw t6, 4(t5)
+    sw t6, 4(t1)
+    lw t6, 8(t5)
+    sw t6, 8(t1)
+    lw t6, 12(t5)
+    sw t6, 12(t1)
+    
+    addi t1, t1, 16               # avanca destino
+    addi t0, t0, 4                # avanca indices
+    addi t2, t2, 1                # contador++
+    j loop_build_emb
+
+fim_build_emb:
+    ret
 
 # (in/out) a0: address of the output matrix to fill (int*)
 # (in)     a1: address of the first matrix (int*)
@@ -246,8 +278,78 @@ build_input_embeddings_matrix:
 # (in)     a4: address of the second matrix (int*)
 # (in)     a5: #rows of the second matrix (int)
 # (in)     a6: #columns of the second matrix (int)
+
 matrix_multiply:
-    # TODO
+    # Validacoes de Seguranca
+    bne a3, a5, fim_matmul        # Se cols_A (a3) != rows_B (a5), aborta a multiplicacao
+    beq a2, zero, fim_matmul      # Se rows_A == 0, aborta
+    beq a3, zero, fim_matmul      # Se cols_A == 0, aborta
+    beq a6, zero, fim_matmul      # Se cols_B == 0, aborta
+
+    # Prologo Minimalista
+    addi sp, sp, -12
+    sw ra, 8(sp)                  # Guarda o endereco de retorno por seguranca
+    sw s0, 4(sp)                  # s0 sera o nosso Acumulador (Soma)
+    sw s1, 0(sp)                  # s1 sera o nosso Contador k
+
+    # Inicializacao dos Ciclos 
+    li t0, 0                      # t0 = i (contador de linhas de A)
+    mv t1, a0                     # t1 = ponteiro de escrita sequencial na matriz resultante
+
+loop_linhas_A:
+    beq t0, a2, fim_matmul_stack
+    li t2, 0                      # t2 = j (contador de colunas de B)
+
+loop_colunas_B:
+    beq t2, a6, proxima_linha_A
+    
+    li s0, 0                      # s0 = acumulador limpo (soma = 0)
+    li s1, 0                      # s1 = k = 0
+
+loop_interno_k:
+    beq s1, a3, guardar_elemento
+    
+    # CALCULAR ENDERECO E CARREGAR A[i][k] 
+    mul t3, t0, a3                # t3 = i * cols_A
+    add t3, t3, s1                # t3 = i * cols_A + k
+    slli t3, t3, 2                # t3 = deslocamento em bytes de A
+    add t3, a1, t3                # t3 = &A[i][k]
+    lw t5, 0(t3)                  # t5 = valor de A[i][k] (reg. temporario limpo)
+    
+    # CALCULAR ENDERECO E CARREGAR B[k][j] 
+    mul t4, s1, a6                # t4 = k * cols_B
+    add t4, t4, t2                # t4 = k * cols_B + j
+    slli t4, t4, 2                # t4 = deslocamento em bytes de B
+    add t4, a4, t4                # t4 = &B[k][j]
+    lw t6, 0(t4)                  # t6 = valor de B[k][j] (reg. temporario limpo)
+    
+    # MULTIPLICAR E ACUMULAR 
+    mul t5, t5, t6                # t5 = A[i][k] * B[k][j]
+    add s0, s0, t5                # s0 (soma) += t5 (produto) -> Acumulacao perfeita e isolada!
+    
+    addi s1, s1, 1                # s1 = k++ (Seguro! s1 esta protegido na iteracao)
+    j loop_interno_k
+
+guardar_elemento:
+    sw s0, 0(t1)                  # Guarda o resultado acumulado no ponteiro de escrita
+    addi t1, t1, 4                # Avanca o ponteiro de escrita (+4 bytes)
+    
+    addi t2, t2, 1                # t2 = j++
+    j loop_colunas_B
+
+proxima_linha_A:
+    addi t0, t0, 1                # t0 = i++
+    j loop_linhas_A
+
+fim_matmul_stack:
+    # Epilogo (Restaura os registadores guardados da stack)
+    lw s1, 0(sp)
+    lw s0, 4(sp)
+    lw ra, 8(sp)
+    addi sp, sp, 12
+
+fim_matmul:
+    ret
 
 # (in/out) a0: address of the output scores vector to fill (int*)
 # (in)     a1: address of Q matrix (int*)
